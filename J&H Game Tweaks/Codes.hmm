@@ -92,6 +92,36 @@ Notes;
     pStandardCameraContext->SetFieldOfView(70.0f);
 }
 
+Patch "Disable Stomp Transition" in "Animation/Knuckles" by "Hyper" 
+{
+    WriteNop
+    (
+        /* 0x140986E9C */
+        ScanSignature
+        (
+            "\x0F\x84\x64\x02\x00\x00\x48\x8B\x47\x38",
+            "xxxxxxxxxx"
+        ),
+
+        6
+    );
+}
+
+Patch "Disable Stomp Transition" in "Animation/Tails" by "Hyper" 
+{
+    WriteNop
+    (
+        /* 0x1409C19B7 */
+        ScanSignature
+        (
+            "\x0F\x84\xEE\x00\x00\x00\x48\x8B\x46\x40",
+            "xxxxxxxxxx"
+        ),
+
+        6
+    );
+}
+
 Code "Bouncy Jump Ball" in "Animation" by "Hyper" does 
 /*
 Uses bouncy jump ball animations when jumping and double jumping, similar to Sonic Forces.
