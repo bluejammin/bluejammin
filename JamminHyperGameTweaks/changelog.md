@@ -1,2 +1,2 @@
-## Blue's Game Tweaks
+## Blue's Stylized Tweaks
 - First Release
