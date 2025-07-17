@@ -10,6 +10,5 @@ add /raw/character/knucklesP.pac
 add /raw/character/amy.pac
 add /raw/character/amyP.pac
 add /raw/character/playercommon.pac
-
 add mod.ini
 add Codes.hmm
