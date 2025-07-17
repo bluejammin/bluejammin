@@ -89,7 +89,7 @@ Notes;
     if (pStandardCameraContext == null)
         return;
 
-    pStandardCameraContext->SetFieldOfView(75.0f);
+    pStandardCameraContext->SetFieldOfView(70.0f);
 }
 
 Code "Bouncy Jump Ball" in "Animation" by "Hyper" does 
