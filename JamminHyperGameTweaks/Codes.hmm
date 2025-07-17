@@ -1,0 +1,1529 @@
+Code "Fix Player Deceleration" in "Fixes" by "chico88959 & Hyper" does 
+/*
+Fixes the player not decelerating correctly when the deceleration rate is set to anything below 100% in the game settings.
+
+Affected characters;
+- Amy
+- Knuckles
+- Tails
+*/
+//
+    #include "Reflection" noemit
+
+    #lib "Reflection"
+    #lib "AmyParameters"
+    #lib "KnucklesParameters"
+    #lib "TailsParameters"
+//
+{
+    var AmyParametersInfo = Reflection.GetDataInfo<AmyParameters.Root>("amy_common");
+
+    if (AmyParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.speed.deceleNeutralMin.force, 500.0f);
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.speed.deceleNeutralMin.jerkMin, 20.0f);
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.speed.deceleNeutralMax.force, 2000.0f);
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.speed.deceleNeutralMax.jerkMin, 700.0f);
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.speed.deceleNeutralMax.jerkMax, 800.0f);
+    }
+
+    var KnucklesParametersInfo = Reflection.GetDataInfo<KnucklesParameters.Root>("knuckles_common");
+
+    if (KnucklesParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.speed.deceleNeutralMin.force, 500.0f);
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.speed.deceleNeutralMin.jerkMin, 20.0f);
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.speed.deceleNeutralMax.force, 2000.0f);
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.speed.deceleNeutralMax.jerkMin, 700.0f);
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.speed.deceleNeutralMax.jerkMax, 800.0f);
+    }
+
+    var TailsParametersInfo = Reflection.GetDataInfo<TailsParameters.Root>("tails_common");
+
+    if (TailsParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.speed.deceleNeutralMin.force, 500.0f);
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.speed.deceleNeutralMin.jerkMin, 20.0f);
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.speed.deceleNeutralMax.force, 2000.0f);
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.speed.deceleNeutralMax.jerkMin, 700.0f);
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.speed.deceleNeutralMax.jerkMax, 800.0f);
+    }
+}
+
+Code "Use Open Zone Camera FOV" in "Camera/Cyber Space" by "Hyper" does 
+/*
+Sets the field of view to match that of the open zone camera.
+
+Notes;
+- This is useful when using the "Force Free Camera" codes.
+*/
+//
+    #include "BlackboardStatus" noemit
+
+    #lib "Player"
+
+    #import "Cameras"
+    #import "GOComponents"
+//
+{
+    if (!IS_WORLD_FLAG(IsCyberSpace))
+        return;
+
+    var pPlayer = Player.GetPlayerData();
+
+    if (pPlayer == null)
+        return;
+
+    var pGOCCamera = GameObject.GetGOC<GOCCamera>(&pPlayer->GameObject);
+
+    if (pGOCCamera == null)
+        return;
+
+    var pStandardCamera = pGOCCamera->GetCameraController<StandardCamera>();
+
+    if (pStandardCamera == null)
+        return;
+    
+    var pStandardCameraContext = pStandardCamera->pContext;
+
+    if (pStandardCameraContext == null)
+        return;
+
+    pStandardCameraContext->SetFieldOfView(70.0f);
+}
+
+Patch "Disable Stomp Transition" in "Animation/Knuckles" by "Hyper" 
+{
+    WriteNop
+    (
+        /* 0x140986E9C */
+        ScanSignature
+        (
+            "\x0F\x84\x64\x02\x00\x00\x48\x8B\x47\x38",
+            "xxxxxxxxxx"
+        ),
+
+        6
+    );
+}
+
+Patch "Disable Stomp Transition" in "Animation/Tails" by "Hyper" 
+{
+    WriteNop
+    (
+        /* 0x1409C19B7 */
+        ScanSignature
+        (
+            "\x0F\x84\xEE\x00\x00\x00\x48\x8B\x46\x40",
+            "xxxxxxxxxx"
+        ),
+
+        6
+    );
+}
+
+Code "Bouncy Jump Ball" in "Animation" by "Hyper" does 
+/*
+Uses bouncy jump ball animations when jumping and double jumping, similar to Sonic Forces.
+
+Notes;
+- Tails uses his normal jump ball animation, as he doesn't have a bouncy alternative.
+*/
+//
+    #include "Helpers" noemit
+
+    #lib "Memory"
+    #lib "Player"
+
+    static bool _isInitialised = false;
+
+    static sbyte _playerType = 0;
+//
+{
+    if (!_isInitialised)
+    {
+        /* 0x1409D4A30 */
+        long sigPlayAnimationEffectAddr = Memory.ReadCall
+        (
+            /* 0x14095EC8E */
+            ScanSignature
+            (
+                "\xE8\xCC\xCC\xCC\xCC\x48\x8B\x46\x38\x48\x8B\x88\x08\x01\x00\x00\x48\x85\xC9\x74\x0C\xBA\x8E\xB4\x47\x3B\xE8\xCC\xCC\xCC\xCC\xEB\x03\x48\x8B\xC5",
+                "x????xxxxxxxxxxxxxxxxxxxxxx????xxxxx"
+            )
+        );
+
+        /* 0x14095EC7C */
+        long sigSetAnimationCallerAddr = ScanSignature
+        (
+            "\xE8\xCC\xCC\xCC\xCC\x41\xB0\x01\x48\x8D\x15\xCC\xCC\xCC\xCC\x48\x8B\xCE\xE8\xCC\xCC\xCC\xCC\x48\x8B\x46\x38",
+            "x????xxxxxx????xxxx????xxxx"
+        );
+
+        /* 0x1408B9F20 */
+        long sigSetAnimationAddr = Memory.ReadCall(sigSetAnimationCallerAddr);
+
+        fixed (sbyte* p_playerType = &_playerType)
+        {
+            // StateJump
+            {
+                WriteAsmHook
+                (
+                    $@"
+                        test dil, dil
+                        jz   playUpdatePhase1Anim
+                    playUpdatePhase2Anim:
+                        mov  r8b, 0xFE
+                        mov  rdx, {TO_STRING_PTR("JUMP_BALL")}
+                        mov  rcx, rax
+                        mov  rax, {sigSetAnimationAddr}
+                        call rax
+                        mov  r8b, 1
+                        mov  rdx, {TO_STRING_PTR("SPINJUMP")}
+                        mov  rcx, rsi
+                        mov  rax, {sigPlayAnimationEffectAddr}
+                        call rax
+                        jmp  exit
+                    playUpdatePhase1Anim:
+                        mov  rdx, {(long)p_playerType}
+                        cmp  byte ptr [rdx], 1
+                        jne  playUpdatePhase2Anim
+                        mov  r8b, 0xFE
+                        mov  rdx, {TO_STRING_PTR("JUMP_START")}
+                        mov  rcx, rax
+                        mov  rax, {sigSetAnimationAddr}
+                        call rax
+                    exit:
+                    ",
+
+                    /* 0x14095EC6A */
+                    ScanSignature
+                    (
+                        "\x41\xB0\xFE\x48\x8B\xC8\x40\x84\xFF\x74\x59",
+                        "xxxxxxxxxxx"
+                    ),
+
+                    HookBehavior.Replace
+                );
+
+                WriteNop(sigSetAnimationCallerAddr, 23);
+            }
+
+            // StateDoubleJump
+            WriteAsmHook
+            (
+                $@"
+                    mov  rdx, {TO_STRING_PTR("SPINJUMP")}
+                    lea  rdx, [rdx]
+                    mov  rcx, rbx
+                    mov  rax, {sigPlayAnimationEffectAddr}
+                    call rax
+                ",
+
+                /* 0x14B9FC903 */
+                ScanSignature
+                (
+                    "\x48\x8D\x15\xCC\xCC\xCC\xCC\x48\x89\xD9\xE8\xCC\xCC\xCC\xCC\x48\x8B\x43\x38",
+                    "xxx????xxxx????xxxx"
+                ),
+
+                HookBehavior.Replace
+            );
+        }
+        
+        _isInitialised = true;
+    }
+
+    _playerType = (sbyte)Player.GetPlayerType();
+}
+Code "Flail Falling" in "Animation/Sonic" by "Hyper" does "Replaces the spinning animation when flinging off terrain with a flailing animation." 
+//
+    #include "Helpers" noemit
+
+    #lib "Memory"
+    #lib "Player"
+
+    static bool _isInitialised = false;
+    static bool _isPlayerSonic = false;
+//
+{
+    if (!_isInitialised)
+    {
+        /* 0x14B92ECE7 */
+        long sig = ScanSignature
+        (
+            "\x41\xB0\xFE\x48\x8D\x15\xCC\xCC\xCC\xCC\x48\x89\xC1\xE8\xCC\xCC\xCC\xCC\xB2\x01\x48\x89\xF9\xE8\xCC\xCC\xCC\xCC\x84\xC0",
+            "xxxxxx????xxxx????xxxxxx????xx"
+        );
+
+        fixed (bool* p_isPlayerSonic = &_isPlayerSonic)
+        {
+            WriteAsmHook
+            (
+                $@"
+                    mov  r8b, 0xFE
+                    mov  rdx, {(long)p_isPlayerSonic}
+                    mov  dl, byte ptr [rdx]
+                    cmp  dl, 1
+                    jne  isNotSonic
+                    mov  rdx, {TO_STRING_PTR("BUMP_JUMP")}
+                    jmp  exit
+                isNotSonic:
+                    mov  rdx, {TO_STRING_PTR("BUMP_JUMP_START")}
+                exit:
+                    mov  rcx, rax
+                    mov  rax, {Memory.ReadCall(sig + 0x0D)}
+                    call rax
+                ",
+
+                sig,
+
+                HookBehavior.Replace
+            );
+        }
+
+        _isInitialised = true;
+    }
+
+    _isPlayerSonic = Player.GetPlayerType() == Player.PlayerType.Sonic;
+}
+
+Patch "Fix Rail Switching Animation" in "Fixes/Animation" by "WasifBoomz & Sails" does "Stops the rail switching animation from ending abruptly." 
+{
+    WriteAsmHook
+    (
+        $@"
+            ; Check if (unknown float) is equal to 40
+            cmp   dword ptr [r15+14h], 0x42200000
+            jz    setSpeed
+            jmp   originalCode
+			
+        setSpeed:
+            mov   dword ptr [r15+18h], 0x3F266666
+			
+        originalCode:
+            movss xmm1, dword ptr [r15+18h]
+            subss xmm0, dword ptr [rbx+r12*8]
+            andps xmm1, xmm9
+        ",
+			
+        /* 0x140DA61A5 */
+        ScanSignature
+        (
+            "\xF3\x41\x0F\x10\x4F\x18\xF3\x42\x0F\x5C\x04\xE3",
+            "xxxxxxxxxxxx"
+        ),
+			
+        HookBehavior.Replace
+    );
+}
+Patch "Fix Upreel Grip Position" in "Fixes/Animation" by "ĐeäTh" does 
+/*
+Adjusts Sonic's grip position on the Upreel object's handle so that it lines up with the actual object.
+*/
+{
+    IntPtr gripOffsetPtr = System.Runtime.InteropServices.Marshal.AllocHGlobal(16);
+    *((float*)gripOffsetPtr + 0) = 0.0f;
+    *((float*)gripOffsetPtr + 1) = -1.025f;
+    *((float*)gripOffsetPtr + 2) = 0.0f;
+    *((float*)gripOffsetPtr + 3) = 0.0f;
+
+    WriteAsmHook
+    (
+        $@"
+            mov rax, {(long)gripOffsetPtr}
+            movups xmm15, [rax]
+            mulps xmm0, xmm15
+            lea rdx, [rsp + 0x60]
+            lea rcx, [rsp + 0x30]
+        ",
+
+        /* v1.10: 0x1498C86A7 */
+        /* v1.30: 0x14983C900 */
+        ScanSignature
+        (
+            "\x0F\x59\x05\xCC\xCC\xCC\xCC\x48\x8D\x54\x24\x60\x48\x8D\x4C\x24\x30",
+            "xxx????xxxxxxxxxx"
+        ),
+
+        HookBehavior.Replace
+    );
+
+    WriteAsmHook
+    (
+        $@"
+            mov rax, {(long)gripOffsetPtr}
+            movups xmm15, [rax]
+            mulps xmm0, xmm15
+            lea rdx, [rbp - 0x10]
+            lea rcx, [rbp - 0x30]
+        ",
+
+        /* v1.20: 0x1403973ED */
+        /* v1.30: 0x1403C7A3C */
+        ScanSignature
+        (
+            "\x0F\x59\x05\xCC\xCC\xCC\xCC\x48\x8D\x55\xF0\x48\x8D\x4D\xD0",
+            "xxx????xxxxxxxx"
+        ),
+
+        HookBehavior.Replace
+    );
+}
+Patch "Fix Damage from Jumping into Enemies" in "Fixes/Gameplay" by "Hyper" does "Fixes Sonic taking damage when jumping into enemies within a small frame window." 
+//
+    #lib "Player"
+
+    static bool IsJumpPrevious = false;
+//
+{
+    Sonic.StateID NotifyJumpDamageCollision(Sonic.StateID in_stateId, Sonic.StateID[] in_stateStackTrace)
+    {
+        bool isJump = in_stateId == Sonic.StateID.StateJump ||
+            in_stateId == Sonic.StateID.StateDoubleJump ||
+            in_stateId == Sonic.StateID.StateGrindDoubleJump;
+
+        if (isJump)
+        {
+            Player.Collision.SetCollisionSphere(Player.CollisionType.Damage, 1.0f);
+            Player.Collision.SetEntityCollision(false);
+            IsJumpPrevious = true;
+        }
+        else if (IsJumpPrevious)
+        {
+            Player.Collision.SetCollisionSphere(Player.CollisionType.Default, 1.0f);
+            Player.Collision.SetEntityCollision(true);
+            IsJumpPrevious = false;
+        }
+
+        return in_stateId;
+    }
+
+    Player.State.AddStateNotifyAction<Sonic.StateID>(NotifyJumpDamageCollision);
+}
+Patch "Fix Quick Cyloop Lock-On" in "Fixes/Gameplay" by "WasifBoomz & The Duck Dealer" does "Fixes the lock-on target changing whenever Sonic performs a Quick Cyloop, allowing for consistent attacks during combat." 
+//
+    #lib "Memory"
+//
+{
+    Memory.WriteForceJump
+    (
+        /* 0x1409C672F */
+        ScanSignature
+        (
+            "\x76\x11\x8B\x06\x48\x8D\x55\x97\x48\x8B\xCB\x89\x45\x97\xE8\xCC\xCC\xCC\xCC\xB8\x03\x00\x00\x00",
+            "xxxxxxxxxxxxxxx????xxxxx"
+        )
+    );
+}
+Code "Fix Rolling in 2D" in "Fixes/Gameplay" by "Hyper" does 
+/*
+Fixes the Drop Dash and Spin states getting stuck in 2D sections where the guide spline crosses paths with another.
+
+Notes;
+- It is highly recommended that you use this with the "Fix Drop Dash Transitions" and "Fix Spin Transitions" codes.
+*/
+//
+    #include "Helpers" noemit
+
+    #lib "DeltaTime"
+    #lib "Globals"
+    #lib "HMM"
+    #lib "Memory"
+    #lib "Player"
+    #lib "VectorHelpers"
+
+    #import "GOComponents"
+
+    #load "System.Numerics.dll"
+
+    using System.Numerics;
+    
+    static bool _isInitialised = false;
+    static bool _isDropDashCameraDelay = true;
+    static bool _isSideView = false;
+
+    static int _sfxHandle = 0;
+
+    static long _sigDropDashCameraDelay = 0;
+    static long _sigPostureHook = 0;
+    static long _sigSfxPlayer = 0;
+    static long _sigSfxHandleAssignment = 0;
+
+    static float _timeInCurrentPosition = 0.0f;
+    static float _ceilingDetectionRadius = 0.01f;
+    static float _ceilingDetectionTime = 0.1f;
+    static float _lastYPosition = 0.0f;
+
+    static float _airInfluenceMagnitude = 10.0f;
+
+    static void SetDropDashCameraDelay(bool in_isEnabled)
+    {
+        if (_sigDropDashCameraDelay == 0)
+        {
+            // v1.41: 0x140956C32
+            _sigDropDashCameraDelay = ScanSignature
+            (
+                "\x73\x2A\xF3\x0F\x10\x05\xCC\xCC\xCC\xCC\x45\x33\xC9",
+                "xxxxxx????xxx"
+            );
+
+            if (_sigDropDashCameraDelay == 0)
+                return;
+        }
+        
+        if (in_isEnabled && _isDropDashCameraDelay)
+        {
+            WriteProtected<byte>(_sigDropDashCameraDelay, 0x73);
+        }
+        else
+        {
+            WriteProtected<byte>(_sigDropDashCameraDelay, 0xEB);
+        }
+    }
+//
+{
+    Globals.Add("Fix Rolling in 2D", true);
+
+    if (Globals.GetFlag("Fix Rolling in 2D"))
+    {
+        if (!_isInitialised)
+        {
+            _isDropDashCameraDelay = !HMM.GetCodes().Contains("Camera/Disable Drop Dash Camera Delay");
+
+            fixed (bool* p_isSideView = &_isSideView)
+            {
+                // v1.41: 0x1408EA2CA
+                var sigDropDashAirPosture = ScanSignature
+                (
+                    "\x0F\x29\xB4\x24\x80\x00\x00\x00\x48\x8D\x54\x24\x20\x0F\x10\xB7\x00\x01\x00\x00",
+                    "xxxxxxxxxxxxxxxxxxxx"
+                );
+
+                // v1.41: 0x1408EA540
+                var sigDropDashGroundPosture = ScanSignature
+                (
+                    "\x48\x8B\xC4\x48\x89\x58\x08\x48\x89\x70\x10\x48\x89\x78\x18\x55\x41\x56\x41\x57\x48\x8D\x68\xA1\x48\x81\xEC\xD0\x00\x00\x00\x4C",
+                    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                );
+
+                /* v1.41: 0x1408EA2B6 */
+                _sigPostureHook = ScanSignature
+                (
+                    "\x84\xC0\x74\x10\x0F\x28\xCF",
+                    "xxxxxxx"
+                );
+
+                Memory.Preserve(_sigPostureHook, 15);
+                
+                WriteAsmHook
+                (
+                    $@"
+                        test   al, al
+                        jnz    doGroundPosture
+                        mov    rax, {sigDropDashAirPosture}
+                        jmp    rax
+                    doGroundPosture:
+                        mov    rcx, {(long)p_isSideView}
+                        cmp    byte ptr [rcx], 0
+                        jnz    exit
+                        movaps xmm1, xmm7
+                        mov    rcx, rbx
+                        mov    rax, {sigDropDashGroundPosture}
+                        call   rax
+                    exit:
+                    ",
+
+                    _sigPostureHook,
+
+                    HookBehavior.Replace
+                );
+            }
+
+            /* v1.41: 0x140956BC7 */
+            _sigSfxPlayer = ScanSignature
+            (
+                "\xE8\xCC\xCC\xCC\xCC\x48\x8D\x8D\xB0\x00\x00\x00\x48\x8B\xD0\xE8\xCC\xCC\xCC\xCC\xB2\x01",
+                "x????xxxxxxxxxxx????xx"
+            );
+
+            /* v1.41: 0x140956BD6 */
+            _sigSfxHandleAssignment = ScanSignature
+            (
+                "\xE8\xCC\xCC\xCC\xCC\xB2\x01\x48\x8B\xCE\xE8\xCC\xCC\xCC\xCC\x33\xD2\x48\x8B\xCE\xE8\xCC\xCC\xCC\xCC\x48\x8B\x7E\x48",
+                "x????xxxxxx????xxxxxx????xxxx"
+            );
+
+            Memory.Preserve(_sigSfxPlayer, 5);
+            Memory.Preserve(_sigSfxHandleAssignment, 5);
+
+            WriteNop(_sigSfxPlayer, 5);
+            WriteNop(_sigSfxHandleAssignment, 5);
+
+            _isInitialised = true;
+        }
+    }
+    else
+    {
+        Memory.Restore(_sigPostureHook);
+        Memory.Restore(_sigSfxPlayer);
+        Memory.Restore(_sigSfxHandleAssignment);
+        
+        SetDropDashCameraDelay(true);
+
+        _isInitialised = false;
+
+        return;
+    }
+
+    /* Check if we're grounded as well as in side view
+       to allow the drop dash to work after using ramps. */
+    _isSideView = Player.Status.IsSideView() && Player.Status.IsGrounded();
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // We have to do our own physics implementation here, since the mid-asm hook is effectively killing it. //
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    if (!Memory.TryGetPointer<GOCPlayerKinematicParams>(Player.Kinematics.Get(), out var out_pKinematics))
+    {
+        SetDropDashCameraDelay(true);
+        return;
+    }
+
+    var state = Player.State.GetCurrentStateID<Sonic.StateID>();
+    var deltaTime = DeltaTime.GetDeltaTime();
+    var isGrounded = Player.Status.IsGrounded();
+
+    if (state == Sonic.StateID.StateDropDash)
+    {
+        if (_sfxHandle == 0)
+            _sfxHandle = Player.Sound.PlaySound("sn_spindash");
+
+        if (Player.Status.IsSideView() && !isGrounded)
+        {
+            _timeInCurrentPosition = 0.0f;
+            Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateSpin);
+            return;
+        }
+
+        if (!_isSideView)
+            return;
+
+        var worldInput = out_pKinematics->WorldInput;
+
+        if (worldInput.Length() <= 0.0f)
+            return;
+        
+        var forward = VectorHelpers.GetForward(out_pKinematics->Rotation);
+        var dot = Vector3.Dot(forward, worldInput);
+
+        // Decelerate if the player is holding back in the opposite direction.
+        if (1.0f - (float)-Math.Min(dot, 0) < 0.15f)
+            out_pKinematics->Velocity -= Vector3.Normalize(out_pKinematics->Velocity) * Player.Kinematics.GetHorizontalMagnitude() * deltaTime;
+    }
+    else if (state == Sonic.StateID.StateSpin)
+    {
+        if (isGrounded)
+        {
+            SetDropDashCameraDelay(false);
+            Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateDropDash);
+            return;
+        }
+        
+        // Ceiling detection to escape into StateFall.
+        {
+            if (Math.Abs(_lastYPosition - out_pKinematics->Position.Y) <= _ceilingDetectionRadius)
+                _timeInCurrentPosition += deltaTime;
+
+            if (_timeInCurrentPosition >= _ceilingDetectionTime)
+            {
+                // Reset Y velocity to prevent Sonic from floating in place.
+                out_pKinematics->Velocity.Y = 0.0f;
+
+                // Switch to StateFall to prevent lingering on a ceiling in StateSpin.
+                Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateFall);
+
+                _timeInCurrentPosition = 0.0f;
+            }
+            
+            _lastYPosition = out_pKinematics->Position.Y;
+        }
+
+        // Don't run code if stick is neutral.
+        if (out_pKinematics->WorldInput.Length() <= 0.0f)
+            return;
+            
+        var horzMag = Player.Kinematics.GetHorizontalMagnitude();
+        var vertMag = Player.Kinematics.GetVerticalMagnitude();
+
+        // Don't run code if we're rolling horizontally.
+        if (Math.Abs(vertMag) + _airInfluenceMagnitude < Math.Abs(horzMag))
+            return;
+
+        var worldInputDirection = VectorHelpers.LookRotation(Vector3.Normalize(out_pKinematics->WorldInput));
+
+        out_pKinematics->Rotation = Quaternion.Slerp(out_pKinematics->Rotation, worldInputDirection, 0.25f);
+        out_pKinematics->Velocity += VectorHelpers.GetForward(out_pKinematics->Rotation);
+
+        // Limit magnitude horizontally.
+        if (horzMag > _airInfluenceMagnitude)
+        {
+            var newVelocity = out_pKinematics->Velocity * (_airInfluenceMagnitude / horzMag);
+
+            out_pKinematics->Velocity.X = newVelocity.X;
+            out_pKinematics->Velocity.Z = newVelocity.Z;
+        }
+    }
+    else
+    {
+        SetDropDashCameraDelay(true);
+
+        if (_sfxHandle != 0)
+        {
+            fixed (int* p_sfxHandle = &_sfxHandle)
+                Player.Sound.StopSound(p_sfxHandle);
+
+            _sfxHandle = 0;
+        }
+    }
+}
+Code "Fix Wall Walking" in "Fixes/Gameplay" by "Hyper & Ahremic" does "Prevents the player from being able to walk vertically up walls at low speeds." 
+//
+    #lib "Player"
+
+    #load "System.Numerics.dll"
+
+    using System.Numerics;
+//
+{
+    if (Player.State.GetCurrentStateID<Sonic.StateID>() != Sonic.StateID.StateRun)
+        return;
+    
+    var kinematics = Player.Kinematics.Get();
+    
+    if (kinematics == null)
+        return;
+    
+    if (Vector3.Transform(Vector3.UnitY, kinematics->Rotation).Y < 0.05f && Player.Kinematics.GetMagnitude() < 14.0f)
+    {
+        Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateFall);
+    }
+}
+Code "Fix Air Boost Transitions" in "Fixes/Gameplay/States" by "Hyper & Weezley" does 
+/*
+Fixes state transitions for the air boost state.
+
+Notes;
+- This fixes being unable to perform another air boost after previously using it before a homing attack, stomp or spring.
+*/
+//
+    #include "BlackboardStatus" noemit
+
+    #lib "Bitwise"
+    #lib "BlackboardStatus"
+    #lib "Globals"
+    #lib "Player"
+    #lib "HMM"
+
+    using System.Collections.Generic;
+
+    static List<Sonic.StateID> _allowedStates = new()
+    {
+        Sonic.StateID.StateHomingFinished,
+        Sonic.StateID.StateSpringJump,
+        Sonic.StateID.StateStompingBounce,
+        Sonic.StateID.StateStompingFlip,
+        Sonic.StateID.StateUpDownPole,
+        Sonic.StateID.StateUpDownPoleDamage
+    };
+
+    static List<Sonic.StateID> _disallowedStates = new()
+    {
+        Sonic.StateID.StateAirBoost,
+        Sonic.StateID.StateAuraTrain,
+        Sonic.StateID.StateGrindStep,
+        Sonic.StateID.StateJumpBoardLaunch,
+        Sonic.StateID.StateCaught,
+        Sonic.StateID.StateSpinBoost
+    };
+
+    static List<Sonic.StateID> _noAirBoostStates = new()
+    {
+        Sonic.StateID.StateGrindStep,
+        Sonic.StateID.StateHoldStand,
+        Sonic.StateID.StateHangPole,
+        Sonic.StateID.StateUpDownPole,
+        Sonic.StateID.StateUpDownPoleDamage
+    };
+
+    static bool _isInitialised = false;
+    static bool _isRestoredAirBoost = false;
+    static bool _isNoAirBoost = false;
+    static bool _isNoCycloneStart = false;
+    static bool _isNoSpinBoostStart = false;
+//
+{
+    if (!_isInitialised)
+    {
+        Globals.Add("Fix Air Boost Transitions", true);
+
+        foreach (var code in HMM.GetCodes())
+        {
+            switch (code)
+            {
+                case "Animation/Tails/Disable Cyclone Transition":
+                    _isNoCycloneStart = true;
+                    break;
+
+                case "Animation/Amy/Disable Card Spin Boost Transition":
+                    _isNoSpinBoostStart = true;
+                    break;
+            }
+        }
+
+        Sonic.StateID NotifyAirBoostReset(Sonic.StateID in_stateId, Sonic.StateID[] in_stateStackTrace)
+        {
+            // Reset flag for StateAirBoost or when the player is grounded.
+            if (_disallowedStates.Contains(in_stateId) || Player.Status.IsGrounded())
+            {
+                _isRestoredAirBoost = false;
+                return in_stateId;
+            }
+
+            foreach (var state in _allowedStates)
+            {
+                if (state == in_stateId)
+                    _isRestoredAirBoost = true;
+            }
+
+            _isNoAirBoost = _noAirBoostStates.Contains(in_stateId);
+
+            return in_stateId;
+        }
+
+        Player.State.AddStateNotifyAction<Sonic.StateID>(NotifyAirBoostReset);
+
+        _isInitialised = true;
+    }
+
+    if (!Globals.GetFlag("Fix Air Boost Transitions"))
+        return;
+
+    var pStatePluginDiving = Player.State.GetStatePlugin("StatePluginDiving");
+
+    if (BlackboardStatus.IsSuper()   ||
+        pStatePluginDiving != null   ||
+        IS_STATE_FLAG(IsDiving)      ||
+        IS_STATE_FLAG(IsDivingBoost) ||
+        IS_STATE_FLAG(IsBoarding)    ||
+        IS_WORLD_FLAG(IsDead))
+    {
+        _isRestoredAirBoost = false;
+    }
+
+    if (_isRestoredAirBoost && !_isNoAirBoost && !Player.Status.IsGroundedSpecial() && Player.Input.IsPressed(Player.InputActionType.PlayerBoost))
+    {
+        // Exit into Air Boost depending on current character.
+        if (IS_WORLD_FLAG(IsPowerBoost))
+        {
+            if (Player.GetPlayerType() == Player.PlayerType.Tails)
+            {
+                Player.State.SetState<Tails.StateID>(_isNoCycloneStart ? Tails.StateID.StateAirBoostCyclone : Tails.StateID.StateCycloneAppear);
+            }
+            else if (Player.GetPlayerType() == Player.PlayerType.Amy)
+            {
+                Player.State.SetState<Amy.StateID>(_isNoSpinBoostStart ? Amy.StateID.AmyStateTarotBoost : Amy.StateID.AmyStateTarotBuildAir);
+            }
+            else if (Player.GetPlayerType() == Player.PlayerType.Knuckles)
+            {
+                Player.State.SetState<Knuckles.StateID>(Knuckles.StateID.KnucklesStateDrillBoostAir)
+            }
+            else
+            {
+                Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateAirBoost);
+            }
+        }
+        else
+        {
+            Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateAirBoost);
+        }
+
+        _isRestoredAirBoost = false;
+    }
+}
+Code "Fix Drop Dash Transitions" in "Fixes/Gameplay/States" by "Hyper" does 
+/*
+Fixes state transitions for the drop dash state.
+
+Notes;
+- This fixes Sonic being unable to boost, spin boost, stomp, jump or otherwise exit out of drop dash.
+*/
+//
+    #include "BlackboardStatus" noemit
+    
+    #lib "Globals"
+    #lib "Memory"
+    #lib "Player"
+    
+    #import "Plugins"
+
+    static bool _isInitialised = false;
+//
+{
+    if (!_isInitialised)
+    {
+        Globals.Add("Fix Drop Dash Transitions", true);
+        _isInitialised = true;
+    }
+
+    if (!Globals.GetFlag("Fix Drop Dash Transitions"))
+        return;
+
+    var state = Player.State.GetCurrentStateID<Sonic.StateID>();
+    var isGrounded = Player.Status.IsGrounded();
+
+    if (state == Sonic.StateID.StateDropDash)
+    {
+        if (Player.Input.IsPressed(Player.InputActionType.PlayerBoost))
+            Player.State.SetState<Sonic.StateID>(isGrounded ? Sonic.StateID.StateRun : Sonic.StateID.StateAirBoost);
+
+        if (Player.Input.IsPressed(Player.InputActionType.PlayerStomping))
+            Player.State.SetState<Sonic.StateID>(isGrounded ? Sonic.StateID.StateRun : Sonic.StateID.StateStompingDown);
+
+        if (Player.Input.IsPressed(Player.InputActionType.PlayerJump) && !isGrounded)
+            Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateDoubleJump);
+
+        if (Player.Input.IsPressed(Player.InputActionType.PlayerSonicboom))
+            Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateSpinBoostCharge);
+    }
+    else if (state == Sonic.StateID.StateRun)
+    {
+        if (Memory.TryGetPointer<StatePluginBoost>(Player.State.GetStatePlugin<StatePluginBoost>(), out var out_pStatePluginBoost))
+        {
+            // Don't exit with boost if the gauge is empty.
+            if ((out_pStatePluginBoost->Flags & StatePluginBoost.BoostFlags.IsGaugeEmpty) != 0)
+                return;
+        }
+
+        if (Player.Input.IsDown(Player.InputActionType.PlayerBoost) && isGrounded)
+        {
+            if (Player.State.GetPreviousStateID<Sonic.StateID>() == Sonic.StateID.StateDropDash)
+                SET_STATE_FLAG(IsBoost, true);
+        }
+    }
+}
+Code "Fix Grind Transitions" in "Fixes/Gameplay/States" by "Hyper" does 
+/*
+Fixes state transitions for the grind states.
+
+Notes;
+- This fixes Tails being unable to stomp after jumping off of a grind rail.
+*/
+//
+    #lib "Globals"
+    #lib "Player"
+
+    static bool _isInitialised = false;
+//
+{
+    if (!_isInitialised)
+    {
+        Globals.Add("Fix Grind Transitions", true);
+        _isInitialised = true;
+    }
+
+    if (!Globals.GetFlag("Fix Grind Transitions"))
+        return;
+
+    if (Player.GetPlayerType() == Player.PlayerType.Tails)
+    {
+        if (Player.State.GetCurrentStateID<Tails.StateID>() is Tails.StateID.StateGrindJump or Tails.StateID.StateGrindDoubleJump)
+        {
+            // Fix Tails being unable to stomp back onto a grind rail after jumping.
+            if (Player.Input.IsPressed(Player.InputActionType.PlayerStomping))
+                Player.State.SetState<Tails.StateID>(Tails.StateID.TailsStateStompingDown);
+        }
+    }
+}
+Code "Fix Recovery Jump Transitions" in "Fixes/Gameplay/States" by "Hyper" does 
+/*
+Fixes state transitions for the recovery jump state.
+
+Notes;
+- This allows Knuckles to glide after performing a recovery jump whilst holding A.
+- This allows Tails to fly after performing a recovery jump whilst holding A.
+*/
+//
+    #lib "DeltaTime"
+    #lib "Globals"
+    #lib "Player"
+
+    static bool _isInitialised = false;
+
+    static float _recoveryJumpTimer = 0.0f;
+//
+{
+    if (!_isInitialised)
+    {
+        Globals.Add("Fix Recovery Jump Transitions", true);
+        _isInitialised = true;
+    }
+
+    if (!Globals.GetFlag("Fix Recovery Jump Transitions"))
+        return;
+
+    switch (Player.GetPlayerType())
+    {
+        case Player.PlayerType.Knuckles:
+        {
+            // Fix Knuckles being unable to glide out of StateRecoveryJump.
+            if (Player.State.GetCurrentStateID<Knuckles.StateID>() == Knuckles.StateID.StateRecoveryJump)
+            {
+                _recoveryJumpTimer += DeltaTime.GetDeltaTime();
+
+                if (_recoveryJumpTimer > 0.65f && Player.Input.IsDown(Player.InputActionType.PlayerJump))
+                {
+                    Player.State.SetState<Knuckles.StateID>(Knuckles.StateID.StateGliding);
+                    _recoveryJumpTimer = 0.0f;
+                }
+            }
+
+            break;
+        }
+
+        case Player.PlayerType.Tails:
+        {
+            // Fix Tails being unable to fly out of StateRecoveryJump.
+            if (Player.State.GetCurrentStateID<Tails.StateID>() == Tails.StateID.StateRecoveryJump)
+            {
+                _recoveryJumpTimer += DeltaTime.GetDeltaTime();
+
+                if (_recoveryJumpTimer > 0.65f && Player.Input.IsDown(Player.InputActionType.PlayerJump))
+                {
+                    Player.State.SetState<Tails.StateID>(Tails.StateID.StateTailsFly);
+                    _recoveryJumpTimer = 0.0f;
+                }
+            }
+            
+            break;
+        }
+    }
+}
+Patch "Fix Spin Dash Transitions" in "Fixes/Gameplay/States" by "Hyper" does 
+/*
+Fixes state transitions for the spin dash state.
+
+Notes;
+- This allows Sonic to always trick when exiting out of spin dash whilst in the air without having to hold the boost input.
+*/
+{
+    WriteProtected<byte>
+    (
+        /* 0x1408A5B97 */
+        ScanSignature
+        (
+            "\x41\x8D\x50\x04\x48\x8B\xCF\xE8\xCC\xCC\xCC\xCC\xB0\x01",
+            "xxxxxxxx????xx"
+        ),
+
+        Assemble("lea edx, dword ptr [r8 + 0x10]")
+    );
+}
+Code "Fix Spin Transitions" in "Fixes/Gameplay/States" by "Hyper" does 
+/*
+Fixes state transitions for the spin state.
+
+Notes;
+- This fixes Sonic being unable to spin boost, air boost and stomp out of the spin state.
+*/
+//
+    #include "BlackboardStatus" noemit
+    
+    #lib "Globals"
+    #lib "Player"
+
+    #import "Plugins"
+
+    static bool _isInitialised = false;
+//
+{
+    if (!_isInitialised)
+    {
+        Globals.Add("Fix Spin Transitions", true);
+        _isInitialised = true;
+    }
+
+    if (!Globals.GetFlag("Fix Spin Transitions"))
+        return;
+
+    var state = Player.State.GetCurrentStateID<Sonic.StateID>();
+    var isGrounded = Player.Status.IsGrounded();
+    
+    if (state == Sonic.StateID.StateSpin)
+    {
+        if (Player.Input.IsPressed(Player.InputActionType.PlayerSonicboom))
+            Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateSpinBoostCharge);
+
+        if (Player.Input.IsPressed(Player.InputActionType.PlayerBoost))
+            Player.State.SetState<Sonic.StateID>(isGrounded ? Sonic.StateID.StateRun : Sonic.StateID.StateAirBoost);
+
+        if (Player.Input.IsPressed(Player.InputActionType.PlayerStomping))
+            Player.State.SetState<Sonic.StateID>(isGrounded ? Sonic.StateID.StateRun : Sonic.StateID.StateStompingDown);
+    }
+    else if (state == Sonic.StateID.StateRun)
+    {
+        if (Memory.TryGetPointer<StatePluginBoost>(Player.State.GetStatePlugin<StatePluginBoost>(), out var out_pStatePluginBoost))
+        {
+            // Don't exit with boost if the gauge is empty.
+            if ((out_pStatePluginBoost->Flags & StatePluginBoost.BoostFlags.IsGaugeEmpty) != 0)
+                return;
+        }
+        
+        if (Player.Input.IsDown(Player.InputActionType.PlayerBoost) && isGrounded)
+        {
+            if (Player.State.GetPreviousStateID<Sonic.StateID>() == Sonic.StateID.StateSpin)
+                SET_STATE_FLAG(IsBoost, true);
+        }
+    }
+}
+Code "Fix Stomp Transitions" in "Fixes/Gameplay/States" by "Hyper & MyorraTheSniper" does 
+/*
+Fixes state transitions for the stomp states.
+
+Notes;
+- This fixes the stomp attack only resetting once you hit the ground, allowing you to perform multiple stomps whilst still airborne.
+- This fixes Sonic being unable to stomp again after performing a stomp bounce.
+- This fixes Sonic being unable to attack after performing a stomp bounce.
+- This disables Sonic flipping after stomping onto specific types of collision.
+- This disables Sonic flipping after using the stomp shockwave on enemies.
+- This allows Knuckles to cancel stomp to start gliding by holding A.
+*/
+//
+    #lib "Globals"
+    #lib "Player"
+
+    static bool _isInitialised = false;
+//
+{
+    if (!_isInitialised)
+    {
+        Globals.Add("Fix Stomp Transitions", true);
+
+        byte[] asm = Assemble($"lea edx, [r8 + {(int)Sonic.StateID.StateStompingLand}]");
+
+        // Disable stomp flip for collision types (e.g. Asura body).
+        WriteProtected<byte>
+        (
+            /* v1.41: 0x14096EBDE */
+            ScanSignature
+            (
+                "\x41\x8D\x50\x3B\xE8\xCC\xCC\xCC\xCC\x48\x8D\x4D\x17\xE8\xCC\xCC\xCC\xCC\xB0\x01\xE9\x4C\x02\x00\x00",
+                "xxxxx????xxxxx????xxxxxxx"
+            ),
+
+            asm
+        );
+
+        // Disable stomp flip for stomp shockwave kill.
+        {
+            /* v1.41: 0x14B938C8C */
+            var sig = ScanSignature
+            (
+                "\x41\x8D\x50\x3B\xE8\xCC\xCC\xCC\xCC\x48\x8D\x4C\x24\x20\xC6\x87\xB8\x00\x00\x00\x01",
+                "xxxxx????xxxxxxxxxxxx"
+            );
+
+            WriteProtected<byte>(sig, asm);
+            WriteNop(sig + 14, 7);
+        }
+
+        // Fix Sonic being unable to stomp again after stomping at least once.
+        WriteNop
+        (
+            /* v1.41: 0x1409D3A9B */
+            ScanSignature
+            (
+                "\x74\x98\x45\x33\xC0",
+                "xxxxx"
+            ),
+
+            2
+        );
+
+        _isInitialised = true;
+    }
+    
+    if (!Globals.GetFlag("Fix Stomp Transitions"))
+        return;
+
+    switch (Player.GetPlayerType())
+    {
+        case Player.PlayerType.Sonic:
+        {
+            if (Player.State.GetCurrentStateID<Sonic.StateID>() == Sonic.StateID.StateBounceJump)
+            {
+                // Fix Sonic being unable to stomp again after performing a stomp bounce.
+                if (Player.Input.IsPressed(Player.InputActionType.PlayerStomping))
+                    Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateStompingDown);
+                        
+                // Fix Sonic being unable to attack after performing a stomp bounce.
+                if (Player.Input.IsPressed(Player.InputActionType.PlayerAttack))
+                    Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateFall);
+            }
+
+            break;
+        }
+
+        case Player.PlayerType.Knuckles:
+        {
+            // Fix Knuckles being unable to glide out of KnucklesStateStompingDown.
+            if (Player.State.GetCurrentStateID<Knuckles.StateID>() == Knuckles.StateID.KnucklesStateStompingDown)
+            {
+                if (Player.Input.IsDown(Player.InputActionType.PlayerJump))
+                    Player.State.SetState<Knuckles.StateID>(Knuckles.StateID.StateGliding);
+
+                Player.State.Redirect<Knuckles.StateID>(Knuckles.StateID.StateJump, Knuckles.StateID.StateGliding);
+                Player.State.Redirect<Knuckles.StateID>(Knuckles.StateID.StateDoubleJump, Knuckles.StateID.StateGliding);
+            }
+            else
+            {
+                Player.State.Restore<Knuckles.StateID>(Knuckles.StateID.StateJump);
+                Player.State.Restore<Knuckles.StateID>(Knuckles.StateID.StateDoubleJump);
+            }
+
+            break;
+        }
+    }
+}
+Patch "Disable Hit Stop" in "Gameplay" by "Hyper" does "Disables the slow motion effect after performing attacks." 
+{
+    WriteAsmHook
+    (
+        $@"
+            xorps  xmm3, xmm3
+            movaps xmm7, xmm3
+            mov    r8, [rcx + 0xB0]
+            mov    esi, edx
+            add    rax, r8
+        ",
+
+        /* 0x147689E7F */
+        ScanSignature
+        (
+            "\x0F\x28\xFB\x4C\x8B\x81\xB0\x00\x00\x00",
+            "xxxxxxxxxx"
+        ),
+
+        HookBehavior.Replace
+    );
+}
+Patch "Disable Thorn Cylinders" in "Gameplay/Objects" by "Hyper" does "Disables the cylindrical thorn objects placed at the most inconvenient locations." 
+{
+    WriteProtected<byte>
+    (
+        /* 0x1404119C4 */
+        ScanSignature
+        (
+            "\xE8\xCC\xCC\xCC\xCC\x48\x8B\xD0\x48\x8B\xCF\xE8\xCC\xCC\xCC\xCC\x48\x8D\x15\xCC\xCC\xCC\xCC\x48\x8B\xCB\x4C\x8B\xF0\xE8\xCC\xCC\xCC\xCC\x49\x0F\xBE\x16",
+            "x????xxxxxxx????xxx????xxxxxxx????xxxx"
+        ),
+
+        0xE9, 0x4A, 0x04, 0x00, 0x00
+    );
+}
+Code "Allow Boost to Damage Objects" in "Gameplay/Skills" by "Hyper & NM" does "Allows the player to damage enemies and harder physics objects by boosting through them." 
+//
+    #include "BlackboardStatus" noemit
+
+    #lib "Player"
+
+    using System.Collections.Generic;
+
+    static bool _isBoostPrevious = false;
+
+    static List<Sonic.StateID> _boostStates = new()
+    {
+        Sonic.StateID.StateAirBoost,
+        Sonic.StateID.StateBumpJump,
+        Sonic.StateID.StateGrind,
+        Sonic.StateID.StateGrindDamage,
+        Sonic.StateID.StateGrindJump,
+        Sonic.StateID.StateGrindRoot,
+        Sonic.StateID.StateGrindStep,
+        Sonic.StateID.StateJump,
+        Sonic.StateID.StateLeftStepRun,
+        Sonic.StateID.StateRightStepRun,
+        Sonic.StateID.StateRun,
+        Sonic.StateID.StateWallMove
+    };
+//
+{
+    Sonic.StateID NotifyStateRunDamageCollision(Sonic.StateID in_stateId, Sonic.StateID[] in_stateStackTrace)
+    {
+        if (_boostStates.Contains(in_stateId) && IS_STATE_FLAG(IsBoost))
+        {
+            Player.Collision.SetCollisionSphere(Player.CollisionType.Damage, 1.0f);
+            Player.Collision.SetEntityCollision(false);
+            _isBoostPrevious = true;
+        }
+        else if (_isBoostPrevious)
+        {
+            Player.Collision.SetCollisionSphere(Player.CollisionType.Default, 1.0f);
+            Player.Collision.SetEntityCollision(true);
+            _isBoostPrevious = false;
+        }
+
+        return in_stateId;
+    }
+
+    Player.State.AddStateNotifyAction<Sonic.StateID>(NotifyStateRunDamageCollision);
+}
+Code "Disable Sonic Boom for Regular Objects" in "Gameplay/Skills/Sonic" by "Hyper" does "Disables the Sonic Boom skill when Sonic is targeting anything but enemies, allowing him to freely charge a Spin Dash around targetable objects." 
+//
+    #lib "GameObject"
+    #lib "Player"
+//
+{
+    if (Player.GetPlayerType() != Player.PlayerType.Sonic)
+        return;
+
+    var pGameObject = Player.Status.GetLockOnTarget();
+
+    if (pGameObject == null)
+        return;
+    
+    // Target is an enemy if it has the GOCHealth component.
+    if (GameObject.GetGOC(pGameObject, "GOCHealth") != null)
+    {
+        Player.State.Restore<Sonic.StateID>(Sonic.StateID.StateSonicBoomKick);
+    }
+    else
+    {
+        Player.State.Redirect<Sonic.StateID>(Sonic.StateID.StateSonicBoomKick, Sonic.StateID.StateSpinBoostCharge);
+    }
+}
+Patch "Disable Decelerate Collision" in "Physics" by "Hyper" does 
+/*
+Disables the collision flag that kills all horizontal velocity when jumping.
+
+Examples;
+- The bridge in Kronos above the river.
+- The cliffsides in Ares.
+*/
+{
+    // v1.41: 0x14089A44F
+    var sig = ScanSignature
+    (
+        "\x89\x41\x34\x8B\x42\x38\x89\x41\x38\x8B\x42\x3C\x89\x41\x3C\x0F\xB6\x42\x40\x88\x41\x40\x48\x8B\xC1",
+        "xxxxxxxxxxxxxxxxxxxxxxxxx"
+    );
+
+    if (sig == 0)
+        return;
+
+    WriteAsmHook("and eax, 0xFFFFFDFF", sig, HookBehavior.After);
+}
+Patch "Disable Spin Charge Air Deceleration" in "Physics" by "Hyper" does 
+/*
+Disables the deceleration when charging a spin dash in the air.
+
+Notes;
+- It is recommended that you use this with Disable Spin Charge Camera.
+*/
+{
+    WriteNop
+    (
+        /* 0x1408FFBB5 */
+        ScanSignature
+        (
+            "\xE8\xCC\xCC\xCC\xCC\x0F\xB6\x5E\x28",
+            "x????xxxx"
+        ),
+
+        5
+    );
+}
+Code "Increased Spin Charge Rotation Speed" in "Physics" by "Hyper" does "Increases the rotation speed for the direction the player is aiming whilst charging a Spin Dash to closely match your analog stick direction." 
+//
+    #include "Reflection" noemit
+
+    #lib "Reflection"
+    #lib "SonicParameters"
+    #lib "AmyParameters"
+    #lib "KnucklesParameters"
+    #lib "TailsParameters"
+//
+{
+    var SonicParametersInfo = Reflection.GetDataInfo<SonicParameters.Root>("player_common");
+
+    if (SonicParametersInfo.pData != null)
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, spinBoost.chargeRotateForce, 500.0f);
+
+    var AmyParametersInfo = Reflection.GetDataInfo<AmyParameters.Root>("amy_common");
+
+    if (AmyParametersInfo.pData != null)
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.spinBoost.chargeRotateForce, 500.0f);
+
+    var KnucklesParametersInfo = Reflection.GetDataInfo<KnucklesParameters.Root>("knuckles_common");
+
+    if (KnucklesParametersInfo.pData != null)
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.spinBoost.chargeRotateForce, 500.0f);
+
+    var TailsParametersInfo = Reflection.GetDataInfo<TailsParameters.Root>("tails_common");
+
+    if (TailsParametersInfo.pData != null)
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.spinBoost.chargeRotateForce, 500.0f);
+}
+Code "Reduced Homing Delay" in "Physics" by "Hyper" does "Reduces the delay after performing a homing attack, allowing you to perform chained homing attacks much quicker." 
+//
+    #lib "BlackboardStatus"
+
+    static bool _isInitialised = false;
+    static bool _isSuper = false;
+
+    static float _delay = 0.2f;
+//
+{
+    if (!_isInitialised)
+    {
+        fixed (bool* p_isSuper = &_isSuper)
+        fixed (float* p_delay = &_delay)
+        {
+            WriteAsmHook
+            (
+                $@"
+                    mov   rdx, {(long)p_isSuper}
+                    cmp   byte ptr [rdx], 0
+                    jnz   isSuper
+                    mov   rdx, {(long)p_delay}
+                    movss xmm2, dword ptr [rdx]
+                    jmp   exit
+                isSuper:
+                    movss xmm2, dword ptr [r15 + rdi + 0x18]
+                exit:
+                    mov   edx, eax
+                    mov   rcx, r13
+                    mov   dword ptr [rbp + 0x57 + 0x28], eax
+                ",
+
+                /* 0x14082379C */
+                ScanSignature
+                (
+                    "\xF3\x41\x0F\x10\x54\x3F\x18",
+                    "xxxxxxx"
+                ),
+
+                HookBehavior.Replace
+            );
+        }
+
+        _isInitialised = true;
+    }
+
+    _isSuper = BlackboardStatus.IsSuper();
+}
+Code "Retain Velocity from Enemy Bounce" in "Physics" by "Weezley" does "Retains the current velocity when bouncing off of enemies." 
+//
+    #include "Reflection" noemit
+
+    #lib "AmyParameters"
+    #lib "KnucklesParameters"
+    #lib "Reflection"
+    #lib "SonicParameters"
+    #lib "TailsParameters"
+//
+{
+    var AmyParametersInfo = Reflection.GetDataInfo<AmyParameters.Root>("amy_common");
+    var KnucklesParametersInfo = Reflection.GetDataInfo<KnucklesParameters.Root>("knuckles_common");
+    var SonicParametersInfo = Reflection.GetDataInfo<SonicParameters.Root>("player_common");
+    var TailsParametersInfo = Reflection.GetDataInfo<TailsParameters.Root>("tails_common");
+
+    if (AmyParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.spinAttack.jumpForce, 12.0f);
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.spinAttack.jumpAddForce, 22.0f);
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.spinAttack.deceleForce, 2.5f);
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.spinAttack.acceleForce, 2.5f);
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.spinAttack.brakeForce, 0.5f);
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.spinAttack.limitSpeedMax, 70.0f);
+        RFL_SET_PARAM(AmyParametersInfo, cyberspaceSV.modePackage.spinAttack.jumpForce, 12.0f);
+        RFL_SET_PARAM(AmyParametersInfo, cyberspaceSV.modePackage.spinAttack.jumpAddForce, 22.0f);
+        RFL_SET_PARAM(AmyParametersInfo, cyberspaceSV.modePackage.spinAttack.deceleForce, 2.5f);
+        RFL_SET_PARAM(AmyParametersInfo, cyberspaceSV.modePackage.spinAttack.acceleForce, 2.5f);
+        RFL_SET_PARAM(AmyParametersInfo, cyberspaceSV.modePackage.spinAttack.brakeForce, 0.5f);
+        RFL_SET_PARAM(AmyParametersInfo, cyberspaceSV.modePackage.spinAttack.limitSpeedMax, 70.0f);
+    }
+
+    if (KnucklesParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.spinAttack.jumpForce, 12.0f);
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.spinAttack.jumpAddForce, 22.0f);
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.spinAttack.deceleForce, 2.5f);
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.spinAttack.acceleForce, 2.5f);
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.spinAttack.brakeForce, 0.5f);
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.spinAttack.limitSpeedMax, 70.0f);
+        RFL_SET_PARAM(KnucklesParametersInfo, cyberspaceSV.modePackage.spinAttack.jumpForce, 12.0f);
+        RFL_SET_PARAM(KnucklesParametersInfo, cyberspaceSV.modePackage.spinAttack.jumpAddForce, 22.0f);
+        RFL_SET_PARAM(KnucklesParametersInfo, cyberspaceSV.modePackage.spinAttack.deceleForce, 2.5f);
+        RFL_SET_PARAM(KnucklesParametersInfo, cyberspaceSV.modePackage.spinAttack.acceleForce, 2.5f);
+        RFL_SET_PARAM(KnucklesParametersInfo, cyberspaceSV.modePackage.spinAttack.brakeForce, 0.5f);
+        RFL_SET_PARAM(KnucklesParametersInfo, cyberspaceSV.modePackage.spinAttack.limitSpeedMax, 70.0f);
+    }
+
+    if (SonicParametersInfo.pData != null)
+    {
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.spinAttack.jumpForce, 12.0f);
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.spinAttack.jumpAddForce, 22.0f);
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.spinAttack.deceleForce, 2.5f);
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.spinAttack.acceleForce, 2.5f);
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.spinAttack.brakeForce, 0.5f);
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.spinAttack.limitSpeedMax, 70.0f);
+    }
+
+    if (TailsParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.spinAttack.jumpForce, 12.0f);
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.spinAttack.jumpAddForce, 22.0f);
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.spinAttack.deceleForce, 2.5f);
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.spinAttack.acceleForce, 2.5f);
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.spinAttack.brakeForce, 0.5f);
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.spinAttack.limitSpeedMax, 70.0f);
+        RFL_SET_PARAM(TailsParametersInfo, cyberspaceSV.modePackage.spinAttack.jumpForce, 12.0f);
+        RFL_SET_PARAM(TailsParametersInfo, cyberspaceSV.modePackage.spinAttack.jumpAddForce, 22.0f);
+        RFL_SET_PARAM(TailsParametersInfo, cyberspaceSV.modePackage.spinAttack.deceleForce, 2.5f);
+        RFL_SET_PARAM(TailsParametersInfo, cyberspaceSV.modePackage.spinAttack.acceleForce, 2.5f);
+        RFL_SET_PARAM(TailsParametersInfo, cyberspaceSV.modePackage.spinAttack.brakeForce, 0.5f);
+        RFL_SET_PARAM(TailsParametersInfo, cyberspaceSV.modePackage.spinAttack.limitSpeedMax, 70.0f);
+    }
+}
+Patch "Disable Drop Dash Turning Delay" in "Physics/Sonic" by "Hyper" does "Disables the out of control timer that determines when Sonic can start turning whilst drop dashing." 
+{
+    WriteNop
+    (
+        /* 0x14084323B */
+        ScanSignature
+        (
+            "\x73\x19\x48\x8B\x47\x40",
+            "xxxxxx"
+        ),
+
+        2
+    );
+}
+Code "Tighter Drop Dash Rotation" in "Physics/Sonic" by "Hyper" does "Allows for tighter steering whilst rolling for more precise movement." 
+//
+    #include "Reflection" noemit
+
+    #lib "Reflection"
+    #lib "SonicParameters"
+//
+{
+    var SonicParametersInfo = Reflection.GetDataInfo<SonicParameters.Root>("player_common");
+
+    if (SonicParametersInfo.pData == null)
+        return;
+
+    RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, dropDash.steeringSpeed1, 400.0f);
+    RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, dropDash.steeringSpeed2, 200.0f);
+    RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, dropDash.brake, 2.5f);
+}
