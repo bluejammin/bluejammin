@@ -1,3 +1,141 @@
+Code "Flail Falling" in "Animation/Sonic" by "Hyper" does "Replaces the spinning animation when flinging off terrain with a flailing animation." 
+//
+    #include "Helpers" noemit
+
+    #lib "Memory"
+    #lib "Player"
+
+    static bool _isInitialised = false;
+    static bool _isPlayerSonic = false;
+//
+{
+    if (!_isInitialised)
+    {
+        /* 0x14B92ECE7 */
+        long sig = ScanSignature
+        (
+            "\x41\xB0\xFE\x48\x8D\x15\xCC\xCC\xCC\xCC\x48\x89\xC1\xE8\xCC\xCC\xCC\xCC\xB2\x01\x48\x89\xF9\xE8\xCC\xCC\xCC\xCC\x84\xC0",
+            "xxxxxx????xxxx????xxxxxx????xx"
+        );
+
+        fixed (bool* p_isPlayerSonic = &_isPlayerSonic)
+        {
+            WriteAsmHook
+            (
+                $@"
+                    mov  r8b, 0xFE
+                    mov  rdx, {(long)p_isPlayerSonic}
+                    mov  dl, byte ptr [rdx]
+                    cmp  dl, 1
+                    jne  isNotSonic
+                    mov  rdx, {TO_STRING_PTR("BUMP_JUMP")}
+                    jmp  exit
+                isNotSonic:
+                    mov  rdx, {TO_STRING_PTR("BUMP_JUMP_START")}
+                exit:
+                    mov  rcx, rax
+                    mov  rax, {Memory.ReadCall(sig + 0x0D)}
+                    call rax
+                ",
+
+                sig,
+
+                HookBehavior.Replace
+            );
+        }
+
+        _isInitialised = true;
+    }
+
+    _isPlayerSonic = Player.GetPlayerType() == Player.PlayerType.Sonic;
+}
+
+Code "Retain Velocity When Jumping Up Slopes" in "Physics" by "Weezley" does "Retains the current ground velocity when jumping from a steep slope." 
+//
+    #include "Reflection" noemit
+
+    #lib "AmyParameters"
+    #lib "KnucklesParameters"
+    #lib "Reflection"
+    #lib "SonicParameters"
+    #lib "TailsParameters"
+//
+{
+    var AmyParametersInfo = Reflection.GetDataInfo<AmyParameters.Root>("amy_common");
+    var KnucklesParametersInfo = Reflection.GetDataInfo<KnucklesParameters.Root>("knuckles_common");
+    var SonicParametersInfo = Reflection.GetDataInfo<SonicParameters.Root>("player_common");
+    var TailsParametersInfo = Reflection.GetDataInfo<TailsParameters.Root>("tails_common");
+
+    if (AmyParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.jumpSpeed.limitUpSpeed, 150.0f);
+    }
+
+    if (KnucklesParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(KnucklesParametersInfo, forwardView.modePackage.jumpSpeed.limitUpSpeed, 150.0f);
+    }
+
+    if (SonicParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(SonicParametersInfo, forwardView.modePackage.jumpSpeed.limitUpSpeed, 150.0f);
+    }
+
+    if (TailsParametersInfo.pData != null)
+    {
+        RFL_SET_PARAM(TailsParametersInfo, forwardView.modePackage.jumpSpeed.limitUpSpeed, 150.0f);
+    }
+}
+
+Code "Allow Boost to Damage Objects" in "Gameplay/Skills" by "Hyper & NM" does "Allows the player to damage enemies and harder physics objects by boosting through them."
+//
+    #include "BlackboardStatus" noemit
+
+    #lib "Player"
+
+    using System.Collections.Generic;
+
+    static bool _isBoostPrevious = false;
+
+    static List<Sonic.StateID> _boostStates = new()
+    {
+        Sonic.StateID.StateAirBoost,
+        Sonic.StateID.StateBumpJump,
+        Sonic.StateID.StateGrind,
+        Sonic.StateID.StateGrindDamage,
+        Sonic.StateID.StateGrindJump,
+        Sonic.StateID.StateGrindRoot,
+        Sonic.StateID.StateGrindStep,
+        Sonic.StateID.StateJump,
+        Sonic.StateID.StateLeftStepRun,
+        Sonic.StateID.StateRightStepRun,
+        Sonic.StateID.StateRun,
+        Sonic.StateID.StateWallMove
+    };
+//
+{
+    Sonic.StateID NotifyStateRunDamageCollision(Sonic.StateID in_stateId, Sonic.StateID[] in_stateStackTrace)
+    {
+        if (_boostStates.Contains(in_stateId) && IS_STATE_FLAG(IsBoost))
+        {
+            Player.Collision.SetCollisionSphere(Player.CollisionType.Damage, 1.0f);
+            Player.Collision.SetEntityCollision(false);
+            _isBoostPrevious = true;
+        }
+        else if (_isBoostPrevious)
+        {
+            Player.Collision.SetCollisionSphere(Player.CollisionType.Default, 1.0f);
+            Player.Collision.SetEntityCollision(true);
+            _isBoostPrevious = false;
+        }
+
+        return in_stateId;
+    }
+
+    Player.State.AddStateNotifyAction<Sonic.StateID>(NotifyStateRunDamageCollision);
+}
+
+
 Code "Retain Velocity When Jumping Up Slopes" in "Physics" by "Weezley" does "Retains the current ground velocity when jumping from a steep slope." 
 //
     #include "Reflection" noemit
@@ -340,57 +478,7 @@ Notes;
 
     _playerType = (sbyte)Player.GetPlayerType();
 }
-Code "Flail Falling" in "Animation/Sonic" by "Hyper" does "Replaces the spinning animation when flinging off terrain with a flailing animation." 
-//
-    #include "Helpers" noemit
 
-    #lib "Memory"
-    #lib "Player"
-
-    static bool _isInitialised = false;
-    static bool _isPlayerSonic = false;
-//
-{
-    if (!_isInitialised)
-    {
-        /* 0x14B92ECE7 */
-        long sig = ScanSignature
-        (
-            "\x41\xB0\xFE\x48\x8D\x15\xCC\xCC\xCC\xCC\x48\x89\xC1\xE8\xCC\xCC\xCC\xCC\xB2\x01\x48\x89\xF9\xE8\xCC\xCC\xCC\xCC\x84\xC0",
-            "xxxxxx????xxxx????xxxxxx????xx"
-        );
-
-        fixed (bool* p_isPlayerSonic = &_isPlayerSonic)
-        {
-            WriteAsmHook
-            (
-                $@"
-                    mov  r8b, 0xFE
-                    mov  rdx, {(long)p_isPlayerSonic}
-                    mov  dl, byte ptr [rdx]
-                    cmp  dl, 1
-                    jne  isNotSonic
-                    mov  rdx, {TO_STRING_PTR("BUMP_JUMP")}
-                    jmp  exit
-                isNotSonic:
-                    mov  rdx, {TO_STRING_PTR("BUMP_JUMP_START")}
-                exit:
-                    mov  rcx, rax
-                    mov  rax, {Memory.ReadCall(sig + 0x0D)}
-                    call rax
-                ",
-
-                sig,
-
-                HookBehavior.Replace
-            );
-        }
-
-        _isInitialised = true;
-    }
-
-    _isPlayerSonic = Player.GetPlayerType() == Player.PlayerType.Sonic;
-}
 
 Patch "Fix Rail Switching Animation" in "Fixes/Animation" by "WasifBoomz & Sails" does "Stops the rail switching animation from ending abruptly." 
 {
@@ -1382,6 +1470,7 @@ Code "Allow Boost to Damage Objects" in "Gameplay/Skills" by "Hyper & NM" does "
 
     Player.State.AddStateNotifyAction<Sonic.StateID>(NotifyStateRunDamageCollision);
 }
+
 Code "Disable Sonic Boom for Regular Objects" in "Gameplay/Skills/Sonic" by "Hyper" does "Disables the Sonic Boom skill when Sonic is targeting anything but enemies, allowing him to freely charge a Spin Dash around targetable objects." 
 //
     #lib "GameObject"
